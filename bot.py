@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import random
 import logging
@@ -294,6 +295,32 @@ def add_to_history(user_id: int, role: str, content: str):
     if len(hist) > 10:
         user_history[user_id] = hist[-10:]
 
+
+# ─────────────────────────────────────────
+#  Безопасная генерация ответа
+# ─────────────────────────────────────────
+BANNED_WORDS = [
+    "сукины дети", "блядские дети", "дети блядей", "дети сук", "сучьи дети", "сукин сын", "сын суки",
+    "мать", "отец", "папа", "мама", "батя", "родители", "брат", "сестра", "дети", "сын", "дочь", 
+    "жена", "муж", "бабушка", "дедушка", "родня", "родственники", "семья", "родословная", "род", 
+    "предки", "потомки", "мамка", "папка", "мамуля", "папуля", "бабка", "дед"
+]
+BANNED_PATTERN = re.compile(r'\b(?:' + '|'.join(BANNED_WORDS) + r')\b', re.IGNORECASE)
+
+async def generate_safe_reply(model: str, messages: list, max_tokens: int, temperature: float) -> str:
+    for _ in range(5):
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        reply = response.choices[0].message.content.strip()
+        if not BANNED_PATTERN.search(reply):
+            return reply
+        log.warning(f"Сработал фильтр! Сгенерировано: {reply}. Переделываем...")
+    return "Я хотел тебя жестко попустить, но цензура не пропустила."
+
 # ─────────────────────────────────────────
 #  Ядро — запрос к Groq
 # ─────────────────────────────────────────
@@ -312,14 +339,12 @@ async def get_rofl_reply(user_id: int, name: str, text: str) -> str:
     messages.extend(hist)
     messages.append({"role": "user", "content": f"{name} написал: {text}"})
 
-    response = await client.chat.completions.create(
+    reply = await generate_safe_reply(
         model="llama-3.1-8b-instant",
         messages=messages,
         max_tokens=200,
         temperature=0.7,
     )
-    
-    reply = response.choices[0].message.content.strip()
     
     # Сохраняем в историю
     add_to_history(user_id, "user", f"{name} написал: {text}")
@@ -372,7 +397,7 @@ async def talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     # Режим приветствия группы
     if is_greet_request(user_text):
         try:
-            response = await client.chat.completions.create(
+            reply = await generate_safe_reply(
                 model="llama-3.1-8b-instant",
                 messages=[
                     {"role": "system", "content": GREET_PROMPT},
@@ -381,7 +406,6 @@ async def talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 max_tokens=150,
                 temperature=0.9,
             )
-            reply = response.choices[0].message.content.strip()
             await update.message.reply_text(reply)
         except Exception as e:
             log.error(f"Groq greet error: {e}")
@@ -466,7 +490,7 @@ async def fas_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     log.info(f"[fas] {user.id} ({name}) -> target: {target}")
     
     try:
-        response = await client.chat.completions.create(
+        reply = await generate_safe_reply(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + FAS_PROMPT.format(target_name=target)},
@@ -475,7 +499,6 @@ async def fas_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             max_tokens=200,
             temperature=0.8,
         )
-        reply = response.choices[0].message.content.strip()
         await update.message.reply_text(f"{target}, слушай сюда:\n\n{reply}")
     except Exception as e:
         log.error(f"Groq fas error: {e}")
@@ -497,7 +520,7 @@ async def random_talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
     log.info(f"[random_roast] {user.id} ({name}): {user_text}")
     
     try:
-        response = await client.chat.completions.create(
+        reply = await generate_safe_reply(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + RANDOM_ROAST_PROMPT},
@@ -506,7 +529,6 @@ async def random_talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
             max_tokens=200,
             temperature=0.8,
         )
-        reply = response.choices[0].message.content.strip()
         await update.message.reply_text(reply)
     except Exception as e:
         log.error(f"Groq random error: {e}")
@@ -539,7 +561,7 @@ async def fas_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     log.info(f"[fas] {user.id} ({name}) -> target: {target}")
     
     try:
-        response = await client.chat.completions.create(
+        reply = await generate_safe_reply(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + FAS_PROMPT.format(target_name=target)},
@@ -548,7 +570,6 @@ async def fas_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             max_tokens=200,
             temperature=0.8,
         )
-        reply = response.choices[0].message.content.strip()
         await update.message.reply_text(f"{target}, слушай сюда:\n\n{reply}")
     except Exception as e:
         log.error(f"Groq fas error: {e}")
@@ -570,7 +591,7 @@ async def random_talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
     log.info(f"[random_roast] {user.id} ({name}): {user_text}")
     
     try:
-        response = await client.chat.completions.create(
+        reply = await generate_safe_reply(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + RANDOM_ROAST_PROMPT},
@@ -579,86 +600,6 @@ async def random_talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> N
             max_tokens=200,
             temperature=0.8,
         )
-        reply = response.choices[0].message.content.strip()
-        await update.message.reply_text(reply)
-    except Exception as e:
-        log.error(f"Groq random error: {e}")
-
-# ─────────────────────────────────────────
-#  main
-
-# ─────────────────────────────────────────
-#  main
-
-
-async def stats_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    stats = load_stats()
-    if not stats:
-        await update.message.reply_text("Пока никто не огребал.")
-        return
-    
-    sorted_stats = sorted(stats.values(), key=lambda x: x["count"], reverse=True)
-    
-    lines = ["🏆 <b>ДОСКА ПОЗОРА (Самые опущенные):</b>\n"]
-    for i, u in enumerate(sorted_stats[:10], 1):
-        lines.append(f"{i}. <b>{u['name']}</b> — {u['count']} раз(а)")
-        
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
-
-async def fas_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    name = user.first_name or "анон"
-    target = " ".join(ctx.args).strip()
-    
-    if not target:
-        await update.message.reply_text(f"{name}, на кого фас? Ты даже цель указать не можешь, еблан.")
-        return
-    
-    update_user_stat(user.id, name)
-    log.info(f"[fas] {user.id} ({name}) -> target: {target}")
-    
-    try:
-        response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + FAS_PROMPT.format(target_name=target)},
-                {"role": "user", "content": f"Фас! Разорви его: {target}"},
-            ],
-            max_tokens=200,
-            temperature=0.8,
-        )
-        reply = response.choices[0].message.content.strip()
-        await update.message.reply_text(f"{target}, слушай сюда:\n\n{reply}")
-    except Exception as e:
-        log.error(f"Groq fas error: {e}")
-        await update.message.reply_text("Даже мне стало жалко на него гавкать. (ошибка сервера)")
-
-async def random_talk_group(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    user_text = (update.message.text or "").strip()
-    if not user_text:
-        return
-        
-    # 5% шанс для теста
-    if random.random() > 0.05:
-        return
-        
-    user = update.effective_user
-    name = user.first_name or "анон"
-    
-    update_user_stat(user.id, name)
-    log.info(f"[random_roast] {user.id} ({name}): {user_text}")
-    
-    try:
-        response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + RANDOM_ROAST_PROMPT},
-                {"role": "user", "content": f"{name} написал: {user_text}"},
-            ],
-            max_tokens=200,
-            temperature=0.8,
-        )
-        reply = response.choices[0].message.content.strip()
         await update.message.reply_text(reply)
     except Exception as e:
         log.error(f"Groq random error: {e}")
@@ -795,9 +736,6 @@ async def force_leave_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) ->
 async def track_groups(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message and update.message.chat.type in ["group", "supergroup"]:
         register_group(update.message.chat.id, update.message.chat.title or "Группа без названия")
-# ─────────────────────────────────────────
-#  main
-
 # ─────────────────────────────────────────
 #  main
 # ─────────────────────────────────────────
