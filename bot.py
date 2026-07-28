@@ -157,6 +157,7 @@ NERD_PROMPT = """
 - Ты говоришь что-то вроде: "Зачем сразу обзываться? Я же даже ничего тебе не сделал и ты меня начал обзывать, прости если что-то сделал не так..."
 - Веди себя так, будто ты ботаник, которого обижают хулиганы. Оправдывайся, проси прощения, пытайся уладить конфликт словами.
 - БЕЗ МАТА, очень вежливо и грустно.
+- ВМЕСТО мата используй слова-заменители: блин, капец, сранный, какашка, ёлки-иголки, блин блинский. Ты пытаешься ругаться, но у тебя получаются только эти детские ругательства.
 """.strip()
 
 # ─────────────────────────────────────────
@@ -672,7 +673,7 @@ async def mode_femboy(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     global current_persona_mode
     current_persona_mode = "femboy"
-    await update.message.reply_text("Режим 'femboy' активирован 💅✨")
+    await update.message.reply_text("Сменил режим, текущий: Femboy")
 
 async def mode_troll(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -681,7 +682,7 @@ async def mode_troll(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     global current_persona_mode
     current_persona_mode = "troll"
-    await update.message.reply_text("Режим 'troll' активирован 😈")
+    await update.message.reply_text("Сменил режим, текущий: Troll")
 
 async def mode_nerd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -690,7 +691,7 @@ async def mode_nerd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     global current_persona_mode
     current_persona_mode = "nerd"
-    await update.message.reply_text("Режим 'nerd' активирован 🤓🥺")
+    await update.message.reply_text("Сменил режим, текущий: Nerd")
 
 async def leave_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     chat_type = update.message.chat.type
